@@ -12,4 +12,4 @@
 * Fissato save da whdload quando impostato come files
 * Aggiunto nelle impostazioni multiplier  per modificare la risoluzione a piacimento, è possibile modificare sia la larghezza che l'altezza.
 * Fissato cambio delle impostazioni grafiche in retroarch che non richiedono piu' il riavvio
-* Aggiunto Autofire per Joy1 e Jpy2 bisognare sciegliere nel menu ogni quanti frame si attiverà o disabilitarlo.
+* Aggiunto Autofire per Joy1 e Joy2 bisognare sciegliere nel menu ogni quanti frame si attiverà o disabilitarlo.
