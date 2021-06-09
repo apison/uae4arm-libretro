@@ -176,7 +176,7 @@ void retro_set_environment(retro_environment_t cb)
       struct retro_variable variables[] = {
      //{ "uae4arm_autorun","Autorun; disabled|enabled" , },
 	 { "uae4arm_model", "Model; Auto|A500|A600|A1200", },
-     { "uae4arm_fastmem", "Chip Memory Size; Default|512K|1M|2M|4M", },
+     { "uae4arm_fastmem", "Chip Memory Size; Default|512K|1M|2M|4M|8M", },
 	 {
          "uae4arm_resolution",
          "Internal resolution; 320x200|320x240|320x256|320x262|320x270|640x200|640x240|640x256|640x262|640x270|768x270|384x224",
@@ -503,19 +503,23 @@ void update_prefs_retrocfg(struct uae_prefs * prefs, bool loadlha)
       {
          prefs->fastmem_size = 0;
       }
-      if (strcmp(var.value, "1 MB") == 0)
+	   if (strcmp(var.value, "512K") == 0)
+      {
+       currprefs.chipmem_size = 1 * 0x80000;
+      }
+      if (strcmp(var.value, "1M") == 0)
       {
          prefs->fastmem_size = 0x100000;
       }
-      if (strcmp(var.value, "2 MB") == 0)
+      if (strcmp(var.value, "2M") == 0)
       {
          prefs->fastmem_size = 0x100000 * 2;
       }
-      if (strcmp(var.value, "4 MB") == 0)
+      if (strcmp(var.value, "4M") == 0)
       {
          prefs->fastmem_size = 0x100000 * 4;
       }
-      if (strcmp(var.value, "8 MB") == 0)
+      if (strcmp(var.value, "8M") == 0)
       {
          prefs->fastmem_size = 0x100000 * 8;
       }
