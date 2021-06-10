@@ -54,6 +54,9 @@ static int last_address_space_24;
 static struct romlist *rl;
 static int romlist_cnt;
 
+
+
+
 char *romlist_get (struct romdata *rd)
 {
     int i;

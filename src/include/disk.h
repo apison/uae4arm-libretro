@@ -48,3 +48,4 @@ extern void changedisk(bool plus);
 
 #define MAX_PREVIOUS_FLOPPIES 99
 extern void SEND_GUI_Operation(const char *message);
+extern void Retro_Msg(const char *);

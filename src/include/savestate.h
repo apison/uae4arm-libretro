@@ -127,3 +127,7 @@ extern char savestate_fname[MAX_DPATH];
 extern struct zfile *savestate_file;
 
 extern void savestate_quick (int slot, int save);
+
+//usate in core-remapper
+extern int savestate(int slot);
+extern int loadstate(int slot);

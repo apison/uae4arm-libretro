@@ -61,6 +61,8 @@ extern void Screen_SetFullUpdate(int scr);
 extern void virtual_kdb(char *buffer,int vx,int vy);
 extern int check_vkey2(int x,int y);
 
+
+
 long frame=0;
 unsigned long  Ktime=0 , LastFPSTime=0;
 
@@ -498,78 +500,13 @@ void retro_virtualkb(void)
 			else if(i>-42 and i<-29) //Save State
             {    
  			    int slot = -i -30 ;
-				std::stringstream convert;   // stream used for the conversion
-				convert << slot;      
-				std::string strslot = convert.str();
-				
-				//std::string sfpath=changed_prefs.df[0];
-				std::string sfpath=bootdiskpth;
-				// write_log("bootdiskpth: %s \n",bootdiskpth);
-	
-				std::size_t ffinedisk = sfpath.find_last_of("/")+1;
-				//wrong file name
-				if (ffinedisk==std::string::npos)return ;
-				std::string fname=sfpath.substr(ffinedisk,sfpath.length()-ffinedisk);
-				//std::string fpath=sfpath.substr(0,ffinedisk);
-				std::string sState = dirSavestate; 
-				sState.append(fname);
-				sState.append(".SAV");
-				sState.append(strslot);
-				//write_log("SAVE Slot: %d     Filename: %s \n",slot,sState.c_str());
-				/*
-				std::string fname=changed_prefs.df[0]; //+ ".SAV" + strslot;
-				fname.append(".SAV");
-				fname.append(strslot);
-				write_log("SAVE Slot: %d     Filename: %s \n",slot,fname.c_str());
-				*/
-				if (fname.length() > 0)
-				{
-					//1 compressed
-					savestate_initsave(sState.c_str(), 1, 1);
-					save_state(sState.c_str(), "...");
-//					savestate_state = STATE_DOSAVE; // Just to create the screenshot
-//					delay_savestate_frame = 2;
-//					gui_running = false;
-				}
-				std::string msg = "Saved File : ";
-				msg.append(sState.c_str());
-				SEND_GUI_Operation(msg.c_str());
-				//int lfname =fname.length();
+				savestate(slot);
 				oldi=-1;
             }
 			else if(i>-62 and i<-49) //Load State
             {    
  			    int slot = -i -50 ;
-				std::stringstream convert;   // stream used for the conversion
-				convert << slot;      
-				std::string strslot = convert.str();
-				//std::string sfpath=changed_prefs.df[0];
-				std::string sfpath=bootdiskpth;
-				std::size_t ffinedisk = sfpath.find_last_of("/")+1;
-				//wrong file name
-				if (ffinedisk==std::string::npos)return ;
-				std::string fname=sfpath.substr(ffinedisk,sfpath.length()-ffinedisk);
-				//std::string fpath=sfpath.substr(0,ffinedisk);
-				std::string sState = dirSavestate; 
-				sState.append(fname);
-				sState.append(".SAV");
-				sState.append(strslot);
-				//write_log("LOAD Slot: %d     Filename: %s \n",slot,sState.c_str());
-				//Verifico esistenza file
-				if (fname.length() > 0)				{
-					FILE * f = fopen(sState.c_str(), "rbe");
-					if (f!=NULL)
-					{
-						fclose(f);
-						savestate_initsave(sState.c_str(), 2, 0);
-						savestate_state = STATE_DORESTORE;
-						//gui_running = false;
-						write_log("File trovato eseguito Restore \n");
-					}
-				}
-				std::string msg = "Loaded File : ";
-				msg.append(sState.c_str());
-				SEND_GUI_Operation(msg.c_str());
+				loadstate(slot);
 				oldi=-1;
             }
 			else
@@ -586,6 +523,103 @@ void retro_virtualkb(void)
 
 }
 
+int savestate(int slot)
+{
+	std::stringstream convert;   // stream used for the conversion
+	convert << slot;      
+	std::string strslot = convert.str();
+	
+	//std::string sfpath=changed_prefs.df[0];
+	std::string sfpath=bootdiskpth;
+	// write_log("bootdiskpth: %s \n",bootdiskpth);
+
+	std::size_t ffinedisk = sfpath.find_last_of("/")+1;
+	//wrong file name
+	if (ffinedisk==std::string::npos)return ;
+	std::string fname=sfpath.substr(ffinedisk,sfpath.length()-ffinedisk);
+	//std::string fpath=sfpath.substr(0,ffinedisk);
+	std::string sState = dirSavestate; 
+	sState.append(fname);
+	sState.append(".SAV");
+	sState.append(strslot);
+	//write_log("SAVE Slot: %d     Filename: %s \n",slot,sState.c_str());
+	/*
+	std::string fname=changed_prefs.df[0]; //+ ".SAV" + strslot;
+	fname.append(".SAV");
+	fname.append(strslot);
+	write_log("SAVE Slot: %d     Filename: %s \n",slot,fname.c_str());
+	*/
+	if (fname.length() > 0)
+	{
+		//1 compressed
+		savestate_initsave(sState.c_str(), 1, 1);
+		save_state(sState.c_str(), "...");
+//					savestate_state = STATE_DOSAVE; // Just to create the screenshot
+//					delay_savestate_frame = 2;
+//					gui_running = false;
+	}
+	std::string msg = "Saved File : ";
+	msg.append(sState.c_str());
+								
+	const char *msg_str = msg.c_str();
+	Retro_Msg(msg_str);
+				
+}
+
+
+int loadstate(int slot)
+{
+	std::stringstream convert;   // stream used for the conversion
+	convert << slot;      
+	std::string strslot = convert.str();
+	//std::string sfpath=changed_prefs.df[0];
+	std::string sfpath=bootdiskpth;
+	std::size_t ffinedisk = sfpath.find_last_of("/")+1;
+	//wrong file name
+	if (ffinedisk==std::string::npos)return ;
+	std::string fname=sfpath.substr(ffinedisk,sfpath.length()-ffinedisk);
+	//std::string fpath=sfpath.substr(0,ffinedisk);
+	std::string sState = dirSavestate; 
+	sState.append(fname);
+	sState.append(".SAV");
+	sState.append(strslot);
+	//write_log("LOAD Slot: %d     Filename: %s \n",slot,sState.c_str());
+	//Verifico esistenza file
+	std::string msg;
+	
+	char buffer [1000];
+
+	if (fname.length() > 0)				{
+		FILE * f = fopen(sState.c_str(), "rbe");
+		if (f!=NULL)
+		{
+			fclose(f);
+			savestate_initsave(sState.c_str(), 2, 0);
+			savestate_state = STATE_DORESTORE;
+			//gui_running = false;
+			//write_log("File trovato eseguito Restore \n");
+			sprintf (buffer, "Loaded File : %s", sState.c_str());
+			msg = "Loaded File : ";
+		}
+		else
+		{	
+			sprintf (buffer, "Failed Loading, File not found, File %s ", sState.c_str());
+		
+			//msg = "Failed Loading File File not found : ";
+		}
+	}
+	else
+	{	
+		sprintf (buffer, "Failed Loading, File not found, File %s ", sState.c_str());
+		
+	}
+	//std::string msg = "Loaded File : ";
+	//msg.append(sState.c_str());
+	
+	//const char *msg_str = buffer;
+	Retro_Msg(buffer);
+	
+}	
 void Screen_SetFullUpdate(int scr)
 {
    if(scr==0 ||scr>1)memset(Retro_Screen, 0, sizeof(Retro_Screen));

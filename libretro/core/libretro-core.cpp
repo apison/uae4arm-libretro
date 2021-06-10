@@ -121,6 +121,7 @@ static retro_environment_t environ_cb;
 int autoloadslot = 0;
 char *dirSavestate="/storage/system/uae4arm/savestates/";
 
+static unsigned msg_interface_version = 0;
 unsigned int opt_use_whdload = 1;
 //apiso
 #define EMULATOR_DEF_WIDTH 320
@@ -224,6 +225,31 @@ void retro_set_environment(retro_environment_t cb)
 	 { NULL, NULL },
    };
    cb(RETRO_ENVIRONMENT_SET_VARIABLES, variables);
+}
+
+void Retro_Msg(const char * msg_str)
+{
+   if (msg_interface_version >= 1)
+   {
+      struct retro_message_ext msg = {
+         msg_str,
+         3000,
+         3,
+         RETRO_LOG_WARN,
+         RETRO_MESSAGE_TARGET_ALL,
+         RETRO_MESSAGE_TYPE_NOTIFICATION,
+         -1
+      };
+      environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE_EXT, &msg);
+   }
+   else
+   {
+      struct retro_message msg = {
+         msg_str,
+         180
+      };
+      environ_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
+   }
 }
 
 void gz_uncompress(gzFile in, FILE *out)
@@ -1071,6 +1097,10 @@ void retro_reset(void)
 void retro_init(void)
 {    	
    const char *system_dir = NULL;
+   
+   msg_interface_version = 0;
+   environ_cb(RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION, &msg_interface_version);
+
 
    if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &system_dir) && system_dir)
    {
