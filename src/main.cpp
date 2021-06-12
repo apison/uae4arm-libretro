@@ -518,38 +518,9 @@ static void real_main2 (int argc, char **argv)
    if (autoloadslot!=0)
    {
 	   //setto lo state
-	   int slot = autoloadslot ;
-		std::stringstream convert;   // stream used for the conversion
-		convert << slot-1;      
-		std::string strslot = convert.str();
-		//std::string sfpath=changed_prefs.df[0];
-				
-		std::string sfpath=bootdiskpth;			
-		
-		std::size_t ffinedisk = sfpath.find_last_of("/")+1;
-		//wrong file name
-		if (ffinedisk==std::string::npos)return ;
-		std::string fname=sfpath.substr(ffinedisk,sfpath.length()-ffinedisk);
-		//std::string fpath=sfpath.substr(0,ffinedisk);
-		std::string sState = dirSavestate; 
-		sState.append(fname);
-		sState.append(".SAV");
-		sState.append(strslot);
-		//write_log("LOAD Slot: %d     Filename: %s \n",slot,sState.c_str());
-		//Verifico esistenza file
-		if (fname.length() > 0)				
-		{
-			FILE * f = fopen(sState.c_str(), "rbe");
-			if (f!=NULL)
-			{
-				fclose(f);
-				savestate_initsave(sState.c_str(), 2, 0);
-				savestate_state = STATE_DORESTORE;
-				//gui_running = false;
-				
-			}
-		}
-	}
+	   int slot = autoloadslot-1 ;
+	   loadstate(slot);	
+   }
 	
   
   if (!machdep_init ()) {

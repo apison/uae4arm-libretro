@@ -2929,5 +2929,12 @@ void changedisk(bool plus)
 			std::string strnefile = fnamenodsk + constdisk + strnewdisk + constdiskof + strtotdisk + ")" + ext;
 			disk_insert(0, strnefile.c_str());
 			
+			std::string msg = "Changed Disk : ";
+		    msg.append(strnefile.c_str());
+								
+			const char *msg_str = msg.c_str();
+	        Retro_Msg(msg_str);
+				
+			
 }
 

@@ -251,7 +251,7 @@ void flush_screen ()
         inputmode_redraw();	
     }
 
-    DISK_GUI_change();				  
+    //DISK_GUI_change();				  
 
     if (savestate_state == STATE_DOSAVE)
     {
