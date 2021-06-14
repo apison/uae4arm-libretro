@@ -155,30 +155,7 @@ void path_join(char* out, const char* basedir, const char* filename)
 {
    snprintf(out, MAX_PATH, "%s%s%s", basedir, RETRO_PATH_SEPARATOR, filename);
 }
-
-void retro_set_environment(retro_environment_t cb)
-{
-   environ_cb = cb;
-
-
-   static const struct retro_controller_description p1_controllers[] = {
-      { "AMIGA Joystick", RETRO_DEVICE_AMIGA_JOYSTICK },
-      { "AMIGA Keyboard", RETRO_DEVICE_AMIGA_KEYBOARD },
-   };
-   static const struct retro_controller_description p2_controllers[] = {
-      { "AMIGA Joystick", RETRO_DEVICE_AMIGA_JOYSTICK },
-      { "AMIGA Keyboard", RETRO_DEVICE_AMIGA_KEYBOARD },
-   };
-
-   static const struct retro_controller_info ports[] = {
-      { p1_controllers, 2  }, // port 1
-      { p2_controllers, 2  }, // port 2
-      { NULL, 0 }
-   };
-
-   cb( RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports );																   
-
-      struct retro_variable variables[] = {
+struct retro_variable variables[] = {
      //{ "uae4arm_autorun","Autorun; disabled|enabled" , },
 	 { "uae4arm_model", "Model; Auto|A500|A600|A1200", },
      { "uae4arm_fastmem", "Chip Memory Size; Default|512K|1M|2M|4M|8M", },
@@ -202,8 +179,7 @@ void retro_set_environment(retro_environment_t cb)
   	
       },*/
 	 
-	 { "uae4arm_autoloadstate","AutoLoad State; Disabled|1|2|3|4|5|6|7|8|9|10|11|12", },
-     //{ "puae_analog","Use Analog; OFF|ON", },
+	 //{ "puae_analog","Use Analog; OFF|ON", },
      { "uae4arm_leds_on_screen", "Leds on screen; on|off", },
 	 { "uae4arm_cpu_speed", "CPU speed; real|max", },
      { "uae4arm_cpu_compatible", "CPU compatible; true|false", },
@@ -220,7 +196,10 @@ void retro_set_environment(retro_environment_t cb)
      { "uae4arm_refreshrate", "Chipset Refresh Rate; 50|60", },
      { "uae4arm_input_autofire_framecnt", "Enable Autofire for Joystick 1 Every specified frame; Disabled|3|4|5|6|7|8|9|10|11|12", },
 	 { "uae4arm_input_autofire_framecnt_joy2", "Enable Autofire for Joystick 2 Every specified frame; Disabled|3|4|5|6|7|8|9|10|11|12", },
-	
+	 { "uae4arm_fast_save_state", "Fast SAVE state on slot ; Disabled|1|2|3|4|5|6|7|8|9|10|11|12", },
+	 { "uae4arm_fast_load_state", "Fast LOAD state on slot ; Disabled|1|2|3|4|5|6|7|8|9|10|11|12", },
+	 { "uae4arm_autoloadstate","AutoLoad State; Disabled|1|2|3|4|5|6|7|8|9|10|11|12", },
+    
 	 //{ "puae_gfx_linemode", "Line mode; double|none", }, // Removed scanline, we have shaders for this
      //{ "uae4arm_gfx_correct_aspect", "Correct aspect ratio; true|false", },
      //{ "puae_gfx_center_vertical", "Vertical centering; simple|smart|none", },
@@ -228,6 +207,29 @@ void retro_set_environment(retro_environment_t cb)
 	 { "uae4arm_whdloadmode",    "whdload mode; files|hdfs"},
 	 { NULL, NULL },
    };
+void retro_set_environment(retro_environment_t cb)
+{
+   environ_cb = cb;
+
+
+   static const struct retro_controller_description p1_controllers[] = {
+      { "AMIGA Joystick", RETRO_DEVICE_AMIGA_JOYSTICK },
+      { "AMIGA Keyboard", RETRO_DEVICE_AMIGA_KEYBOARD },
+   };
+   static const struct retro_controller_description p2_controllers[] = {
+      { "AMIGA Joystick", RETRO_DEVICE_AMIGA_JOYSTICK },
+      { "AMIGA Keyboard", RETRO_DEVICE_AMIGA_KEYBOARD },
+   };
+
+   static const struct retro_controller_info ports[] = {
+      { p1_controllers, 2  }, // port 1
+      { p2_controllers, 2  }, // port 2
+      { NULL, 0 }
+   };
+
+   cb( RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports );																   
+
+     
    cb(RETRO_ENVIRONMENT_SET_VARIABLES, variables);
 }
 
@@ -464,7 +466,6 @@ void update_prefs_retrocfg(struct uae_prefs * prefs, bool loadlha)
 		  }
 		  else
 		  {
-			//Implementazione dell'autoload dello state sullo slot 12, serve   
 			multiplierh = atof(varmul.value) ;
 			  
 		  }
@@ -483,7 +484,6 @@ void update_prefs_retrocfg(struct uae_prefs * prefs, bool loadlha)
 		  }
 		  else
 		  {
-			//Implementazione dell'autoload dello state sullo slot 12, serve   
 			multiplierw = atof(varmulw.value) ;
 			  
 		  }
@@ -1044,6 +1044,51 @@ void update_prefs_retrocfg(struct uae_prefs * prefs, bool loadlha)
 		  
       }
    }
+   
+   struct retro_variable varSave = {0};
+   varSave.key = "uae4arm_fast_save_state";
+   varSave.value = NULL;
+   bool changesavestate = false;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &varSave) && varSave.value)
+   {
+      if (strcmp(varSave.value, "Disabled") == 0)
+	  {
+		  strcpy(varSave.value,"Disabled");
+	  }
+      else
+	  {
+		int saveslot;
+		saveslot = atoi(varSave.value)-1 ;
+		savestate(saveslot);
+		strcpy(varSave.value,"Disabled");
+		changesavestate=true;
+      }
+   }
+   
+   struct retro_variable varLoad = {0};
+   varLoad.key = "uae4arm_fast_load_state";
+   varLoad.value = NULL;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &varLoad) && varLoad.value)
+   {
+      if (strcmp(varLoad.value, "Disabled") == 0)
+	  {
+		  strcpy(varLoad.value,"Disabled");
+	  }
+      else
+	  {
+		int loadslot;
+		loadslot = atoi(varLoad.value)-1 ;
+		loadstate(loadslot);
+		strcpy(varLoad.value,"Disabled");
+		changesavestate=true;
+      }
+   }
+   
+   if (changesavestate)
+   {	   
+	  //retro_environment_t cb  ; 
+      environ_cb(RETRO_ENVIRONMENT_SET_VARIABLES, variables);
+   }
 
 }
 
@@ -1299,7 +1344,7 @@ void retro_run(void)
          savestate_fname[0] = '\0';
 		 
 		 //DA TESTARE 
-		 write_log("retro_run init save_state \n");
+		 //write_log("retro_run init save_state \n");
 		 savestate_initsave(savestate_fname, 1, 1);
 		 
          // > Get save state size
@@ -1319,17 +1364,17 @@ void retro_run(void)
          // full set of values that are recorded is beyond
          // my patience...
         
-         write_log("retro_run starting save_state \n");
+         //write_log("retro_run starting save_state \n");
 		 struct zfile *state_file = save_stater("libretro", 0);
 		 
 	
          if (state_file)
          {
-			write_log("retro_run state file trovato \n"); 
+			//write_log("retro_run state file trovato \n"); 
             save_state_file_size  = (size_t)zfile_size(state_file);
             save_state_file_size += (size_t)(((float)save_state_file_size * 0.05f) + 0.5f);
             
-			write_log("retro_run save_state_file_size: %d \n",save_state_file_size);
+			//write_log("retro_run save_state_file_size: %d \n",save_state_file_size);
         
 			zfile_fclose(state_file);
          }
@@ -1402,7 +1447,7 @@ bool retro_load_game_special(unsigned type, const struct retro_game_info *info, 
 
 size_t retro_serialize_size(void)
 {
-	      write_log ("retro_serialize_size %d \n",save_state_file_size);
+	    //  write_log ("retro_serialize_size %d \n",save_state_file_size);
 		return save_state_file_size;
  //if (save_state_file_size==0)
 //{	 return 1;} else
@@ -1420,20 +1465,20 @@ bool retro_serialize(void *data_, size_t size)
  
    savestate_fname[0] = '\0';
    
-   write_log ("retro_serialize System Time is: %02d:%02d:%02d\n",tm.tm_hour, tm.tm_min, tm.tm_sec);
+   //write_log ("retro_serialize System Time is: %02d:%02d:%02d\n",tm.tm_hour, tm.tm_min, tm.tm_sec);
    
    struct zfile *state_file = save_stater("libretro", (uae_u64)save_state_file_size);
    
-   write_log ("retro_serialize len: %d  s \n",save_state_file_size);
+   //write_log ("retro_serialize len: %d  s \n",save_state_file_size);
    bool success = false;
 
    if (state_file)
    {
       uae_s64 state_file_size = zfile_size(state_file);
-	  T= time(NULL);
-struct  tm tm2 = *localtime(&T);	  
-	  tm2 = *localtime(&T);
-	  write_log ("retro_serialize state file creato System Time is: %02d:%02d:%02d\n",tm2.tm_hour, tm2.tm_min, tm2.tm_sec);
+	  //T= time(NULL);
+	  //struct  tm tm2 = *localtime(&T);	  
+	  //tm2 = *localtime(&T);
+	  //write_log ("retro_serialize state file creato System Time is: %02d:%02d:%02d\n",tm2.tm_hour, tm2.tm_min, tm2.tm_sec);
    
       if (size >= state_file_size)
       {
@@ -1445,10 +1490,10 @@ struct  tm tm2 = *localtime(&T);
 
       zfile_fclose(state_file);
    }
-   	  T= time(NULL);
-	  struct  tm tm3 = *localtime(&T);	  
-	  tm3 = *localtime(&T);
-   write_log ("retro_serialize end function System Time is: %02d:%02d:%02d\n",tm3.tm_hour, tm3.tm_min, tm3.tm_sec);
+   	  //T= time(NULL);
+	  //struct  tm tm3 = *localtime(&T);	  
+	  //tm3 = *localtime(&T);
+	  //write_log ("retro_serialize end function System Time is: %02d:%02d:%02d\n",tm3.tm_hour, tm3.tm_min, tm3.tm_sec);
    	 
    return success;
 }
@@ -1465,7 +1510,7 @@ bool retro_unserialize(const void *data_, size_t size)
    savestate_fname[0] = '\0';
    
    bool success = false;
-   write_log ("retro_unserialize \n");
+   //write_log ("retro_unserialize \n");
    // Cannot restore state while any 'savestate'
    // operation is underway
    // > Actual restore is deferred until m68k_go(),
@@ -1476,7 +1521,7 @@ bool retro_unserialize(const void *data_, size_t size)
    //   true - if a save state operation is underway
    //   at this point then we are dealing with an
    //   unknown error
-    write_log ("retro_unserialize savestate_state %d \n",savestate_state);
+   // write_log ("retro_unserialize savestate_state %d \n",savestate_state);
    if (!savestate_state)
    {
       // Savestates also save CPU prefs, therefore refresh core options, but skip it for now
