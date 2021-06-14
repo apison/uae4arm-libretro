@@ -22,7 +22,12 @@ extern uae_u8 restore_u8_func (uae_u8 **);
 
 extern void save_string_func (uae_u8 **, const char*);
 extern char *restore_string_func (uae_u8 **);
-
+#define SAVESTATE_PATH 0
+#define SAVESTATE_PATH_FLOPPY 1
+#define SAVESTATE_PATH_VDIR 2
+#define SAVESTATE_PATH_HDF 3
+#define SAVESTATE_PATH_HD 4
+#define SAVESTATE_PATH_CD 5	
 #define save_u64(x) save_u64_func (&dst, (x))
 #define save_u32(x) save_u32_func (&dst, (x))
 #define save_u16(x) save_u16_func (&dst, (x))
@@ -108,6 +113,8 @@ extern uae_u8 *restore_rom (uae_u8 *);
 extern uae_u8 *save_rom (int, int *, uae_u8 *);
 
 extern void savestate_initsave (const char *filename, int docompress, int nodialogs);
+extern struct zfile *save_stater (const char *description, uae_u64 size);
+void restore_state (void);						  
 extern int save_state (const char *filename, const char *description);
 extern void restore_state (const char *filename);
 extern void savestate_restore_finish (void);
@@ -127,6 +134,11 @@ extern char savestate_fname[MAX_DPATH];
 extern struct zfile *savestate_file;
 
 extern void savestate_quick (int slot, int save);
+
+extern void stripslashes (char *p);
+extern void fixtrailing (char *p);
+extern void getpathpart (char *outpath, int size, const char *inpath);
+extern void getfilepart (char *out, int size, const char *path);
 
 //usate in core-remapper
 extern int savestate(int slot);

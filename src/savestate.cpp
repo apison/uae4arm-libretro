@@ -57,6 +57,9 @@
 #include "gui.h"
 #include "audio.h"
 #include "filesys.h"
+#include "commonvar.h"					  
+#include "libretro-core.h"
+extern struct zfile *retro_deserialize_file;				   
 
 int savestate_state = 0;
 
@@ -69,6 +72,7 @@ char savestate_fname[MAX_DPATH]={
 
 static void state_incompatible_warn(void)
 {
+	if (savestate_fname[0] == '\0') return;	
     static int warned;
     int dowarn = 0;
     int i;
@@ -129,6 +133,10 @@ void save_string_func (uae_u8 **dstp, const char *from)
     *dst++ = 0;
     *dstp = dst;
 }
+void save_path_func (uae_u8 **dstp, const char *from, int type)
+{
+	save_string_func (dstp, from);
+} 
 
 uae_u32 restore_u32_func (uae_u8 **dstp)
 {
@@ -178,7 +186,84 @@ char *restore_string_func (uae_u8 **dstp)
     *dstp = dst;
     return to; 
 }
+char *restore_path_func (uae_u8 **dstp, int type)
+{
+	char *newpath;
+	char *s;
+  char tmp[MAX_DPATH], tmp2[MAX_DPATH];
 
+	s = restore_string_func(dstp);
+	if (s[0] == 0)
+		return s;
+	if (zfile_exists (s))
+		return s;
+	if (type == SAVESTATE_PATH_HD)
+		return s;
+	getfilepart (tmp, sizeof tmp / sizeof (char), s);
+	if (zfile_exists (tmp)) {
+		xfree (s);
+		return my_strdup (tmp);
+	}
+
+	newpath = bootdiskpth;
+	/*if (type == SAVESTATE_PATH_FLOPPY)
+		newpath = currprefs.path_floppy;
+	else if (type == SAVESTATE_PATH_VDIR || type == SAVESTATE_PATH_HDF)
+		newpath = currprefs.path_hardfile;
+	else if (type == SAVESTATE_PATH_CD)
+		newpath = currprefs.path_cd;*/
+	if (newpath != NULL && newpath[0] != 0) {
+		strcpy (tmp2, newpath);
+		fixtrailing (tmp2);
+		strcat (tmp2, tmp);
+		if (zfile_exists (tmp2)) {
+			xfree (s);
+			return my_strdup (tmp2);
+		}
+  }
+#ifndef __LIBRETRO__
+	getpathpart (tmp2, sizeof tmp2 / sizeof (char), savestate_fname);
+	strcat (tmp2, tmp);
+	if (zfile_exists (tmp2)) {
+		xfree (s);
+		return my_strdup (tmp2);
+	}
+#endif
+	return s;
+}
+
+
+void stripslashes (char *p)
+{
+	while (strlen (p) > 0 && (p[strlen (p) - 1] == '\\' || p[strlen (p) - 1] == '/'))
+		p[strlen (p) - 1] = 0;
+}
+void fixtrailing (char *p)
+{
+	if (strlen(p) == 0)
+		return;
+	if (p[strlen(p) - 1] == '/' || p[strlen(p) - 1] == '\\')
+		return;
+	strcat(p, "/");
+}
+
+void getpathpart (char *outpath, int size, const char *inpath)
+{
+	strcpy (outpath, inpath);
+	char *p = strrchr (outpath, '/');
+	if (p)
+		p[0] = 0;
+	fixtrailing (outpath);
+}
+void getfilepart (char *out, int size, const char *path)
+{
+	out[0] = 0;
+	const char *p = strrchr (path, '/');
+	if (p)
+		strcpy (out, p + 1);
+	else
+		strcpy (out, path);
+}
 /* read and write IFF-style hunks */
 
 static void save_chunk (struct zfile *f, uae_u8 *chunk, size_t len, char *name, int compress)
@@ -358,6 +443,168 @@ static void restore_header (uae_u8 *src)
 
 /* restore all subsystems */
 
+void restore_state (void)
+{
+    struct zfile *f;
+    uae_u8 *chunk,*end;
+    char name[5];
+    size_t len, totallen;
+    size_t filepos, filesize;
+    int z3num;
+
+    chunk = 0;
+	f = retro_deserialize_file;
+    if (!f)
+	goto error;
+    zfile_fseek (f, 0, SEEK_END);
+    filesize = zfile_ftell (f);
+    zfile_fseek (f, 0, SEEK_SET);
+
+    chunk = restore_chunk (f, name, &len, &totallen, &filepos);
+	
+	if (!chunk || memcmp (name, "ASF ", 4)) {
+	//write_log ("%s is not an AmigaStateFile\n",filename);
+	goto error;
+    }
+
+    savestate_file = f;
+    restore_header (chunk);
+    xfree (chunk);
+    changed_prefs.bogomem_size = 0;
+    changed_prefs.chipmem_size = 0;
+    changed_prefs.fastmem_size = 0;
+    changed_prefs.z3fastmem_size = 0;
+    z3num = 0;
+    savestate_state = STATE_RESTORE;
+    for (;;) {
+	name[0] = 0;
+	chunk = end = restore_chunk (f, name, &len, &totallen, &filepos);
+	write_log ("Chunk '%s' size %d (%d)\n", name, len, totallen);
+	if (!strcmp (name, "END ")) {
+	    break;
+  }
+	if (!strcmp (name, "CRAM")) {
+	    restore_cram (totallen, filepos);
+	    continue;
+	} else if (!strcmp (name, "BRAM")) {
+	    restore_bram (totallen, filepos);
+	    continue;
+#ifdef AUTOCONFIG
+	} else if (!strcmp (name, "FRAM")) {
+	    restore_fram (totallen, filepos);
+	    continue;
+	} else if (!strcmp (name, "ZRAM")) {
+	    restore_zram (totallen, filepos, z3num++);
+	    continue;
+	} else if (!strcmp (name, "BORO")) {
+	    restore_bootrom (totallen, filepos);
+	    continue;
+#endif
+#ifdef PICASSO96
+	} else if (!strcmp (name, "PRAM")) {
+	    restore_pram (totallen, filepos);
+	    continue;
+#endif
+	} else if (!strcmp (name, "CPU "))
+	    end = restore_cpu (chunk);
+#ifdef FPUEMU
+	else if (!strcmp (name, "FPU "))
+	    end = restore_fpu (chunk);
+#endif
+	else if (!strcmp (name, "AGAC"))
+	    end = restore_custom_agacolors (chunk);
+	else if (!strcmp (name, "SPR0"))
+	    end = restore_custom_sprite (0, chunk);
+	else if (!strcmp (name, "SPR1"))
+	    end = restore_custom_sprite (1, chunk);
+	else if (!strcmp (name, "SPR2"))
+	    end = restore_custom_sprite (2, chunk);
+	else if (!strcmp (name, "SPR3"))
+	    end = restore_custom_sprite (3, chunk);
+	else if (!strcmp (name, "SPR4"))
+	    end = restore_custom_sprite (4, chunk);
+	else if (!strcmp (name, "SPR5"))
+	    end = restore_custom_sprite (5, chunk);
+	else if (!strcmp (name, "SPR6"))
+	    end = restore_custom_sprite (6, chunk);
+	else if (!strcmp (name, "SPR7"))
+	    end = restore_custom_sprite (7, chunk);
+	else if (!strcmp (name, "CIAA"))
+	    end = restore_cia (0, chunk);
+	else if (!strcmp (name, "CIAB"))
+	    end = restore_cia (1, chunk);
+	else if (!strcmp (name, "CHIP"))
+	    end = restore_custom (chunk);
+	else if (!strcmp (name, "AUD0"))
+	    end = restore_audio (0, chunk);
+	else if (!strcmp (name, "AUD1"))
+	    end = restore_audio (1, chunk);
+	else if (!strcmp (name, "AUD2"))
+	    end = restore_audio (2, chunk);
+	else if (!strcmp (name, "AUD3"))
+	    end = restore_audio (3, chunk);
+	else if (!strcmp (name, "BLIT"))
+	    end = restore_blitter (chunk);
+	else if (!strcmp (name, "DISK"))
+	    end = restore_floppy (chunk);
+	else if (!strcmp (name, "DSK0"))
+	    end = restore_disk (0, chunk);
+	else if (!strcmp (name, "DSK1"))
+	    end = restore_disk (1, chunk);
+	else if (!strcmp (name, "DSK2"))
+	    end = restore_disk (2, chunk);
+	else if (!strcmp (name, "DSK3"))
+	    end = restore_disk (3, chunk);
+	else if (!strcmp (name, "KEYB"))
+	    end = restore_keyboard (chunk);
+#ifdef AUTOCONFIG
+	else if (!strcmp (name, "EXPA"))
+	    end = restore_expansion (chunk);
+#endif
+	else if (!strcmp (name, "ROM "))
+	    end = restore_rom (chunk);
+#ifdef PICASSO96
+	else if (!strcmp (name, "P96 "))
+	    end = restore_p96 (chunk);
+#endif
+#ifdef FILESYS
+	else if (!strcmp (name, "FSYS"))
+	    end = restore_filesys (chunk);
+	else if (!strcmp (name, "FSYC"))
+	    end = restore_filesys_common (chunk);
+#endif
+	else {
+	    end = chunk + len;
+	    write_log ("unknown chunk '%s' size %d bytes\n", name, len);
+	}
+	if (end == NULL)
+	    write_log ("Chunk '%s', size %d bytes was not accepted!\n",
+		      name, len);
+	else if (len != end - chunk)
+	    write_log ("Chunk '%s' total size %d bytes but read %d bytes!\n",
+		       name, len, end - chunk);
+	xfree (chunk);
+    }
+    restore_disk_finish();
+    restore_blitter_finish();
+#ifdef PICASSO96
+    restore_p96_finish ();
+#endif
+    return;
+
+  error:
+    savestate_state = 0;
+    savestate_file = 0;
+    if (chunk)
+	xfree (chunk);
+
+	if (retro_deserialize_file)
+	{
+		zfile_fclose (retro_deserialize_file);
+		retro_deserialize_file = NULL;
+	}
+
+}
 void restore_state (const char *filename)
 {
     struct zfile *f;
@@ -518,7 +765,16 @@ void savestate_restore_finish (void)
 {
     if (savestate_state != STATE_RESTORE)
 	return;
-    zfile_fclose (savestate_file);
+	if (savestate_fname[0] == '\0')
+	{	
+		if (retro_deserialize_file)
+		{
+			zfile_fclose (retro_deserialize_file);
+			retro_deserialize_file = NULL;
+		}
+	}	
+    else {zfile_fclose (savestate_file);}	
+    
     savestate_file = 0;
     savestate_state = 0;
     restore_cpu_finish();
@@ -704,6 +960,147 @@ int save_state (const char *filename, const char *description)
     zfile_fclose (f);
     savestate_state = 0;
     return 1;
+}
+
+
+struct zfile *save_stater (const char *description, uae_u64 size)
+{
+    uae_u8 endhunk[] = { 'E', 'N', 'D', ' ', 0, 0, 0, 8 };
+    uae_u8 header[1000];
+    char tmp[100];
+    uae_u8 *dst;
+    struct zfile *f;
+    int len,i;
+    char name[5];
+	int comp = 0;
+	savestate_nodialogs = 1;
+
+    if (!savestate_specialdump && !savestate_nodialogs) {
+	state_incompatible_warn();
+	if (!save_filesys_cando()) {
+	    gui_message("Filesystem active. Try again later");
+	    return NULL;
+		}
+    }
+    savestate_nodialogs = 0;
+    custom_prepare_savestate ();
+	f = zfile_fopen_empty (description, size);
+    if (!f)	return NULL;
+    if (savestate_specialdump) {
+	    size_t pos;
+	    pos = zfile_ftell(f);
+	    save_rams (f, -1);
+      zfile_fclose (f);
+	    return 1;
+    }
+
+    dst = header;
+    save_u32 (0);
+    save_string("UAE");
+    snprintf (tmp, 32, "%d.%d.%d", UAEMAJOR, UAEMINOR, UAESUBREV);
+    save_string (tmp);
+    save_string (description);
+    save_chunk (f, header, dst-header, "ASF ", 0);
+
+    dst = save_cpu (&len, 0);
+    save_chunk (f, dst, len, "CPU ", 0);
+    xfree (dst);
+#ifdef FPUEMU
+    dst = save_fpu (&len, 0);
+    save_chunk (f, dst, len, "FPU ", 0);
+    xfree (dst);
+#endif
+
+    strcpy(name, "DSKx");
+    for (i = 0; i < 4; i++) {
+	dst = save_disk (i, &len, 0);
+	if (dst) {
+	    name[3] = i + '0';
+	    save_chunk (f, dst, len, name, 0);
+	    xfree (dst);
+	}
+    }
+    dst = save_floppy (&len, 0);
+    save_chunk (f, dst, len, "DISK", 0);
+    xfree (dst);
+
+    dst = save_blitter (&len, 0);
+    save_chunk (f, dst, len, "BLIT", 0);
+    xfree (dst);
+
+    dst = save_custom (&len, 0, 0);
+    save_chunk (f, dst, len, "CHIP", 0);
+    xfree (dst);
+
+    dst = save_custom_agacolors (&len, 0);
+    save_chunk (f, dst, len, "AGAC", 0);
+    xfree (dst);
+
+    strcpy (name, "SPRx");
+    for (i = 0; i < 8; i++) {
+	dst = save_custom_sprite (i, &len, 0);
+	name[3] = i + '0';
+	save_chunk (f, dst, len, name, 0);
+	xfree (dst);
+    }
+
+    strcpy (name, "AUDx");
+    for (i = 0; i < 4; i++) {
+	dst = save_audio (i, &len, 0);
+	name[3] = i + '0';
+	save_chunk (f, dst, len, name, 0);
+	xfree (dst);
+    }
+
+    dst = save_cia (0, &len, 0);
+    save_chunk (f, dst, len, "CIAA", 0);
+    xfree (dst);
+
+    dst = save_cia (1, &len, 0);
+    save_chunk (f, dst, len, "CIAB", 0);
+    xfree (dst);
+
+    dst = save_keyboard (&len);
+    save_chunk (f, dst, len, "KEYB", 0);
+    xfree (dst);
+
+#ifdef AUTOCONFIG
+    dst = save_expansion (&len, 0);
+    save_chunk (f, dst, len, "EXPA", 0);
+    xfree (dst);
+#endif
+
+    save_rams (f, comp);
+
+    dst = save_rom (1, &len, 0);
+    do {
+	if (!dst)
+	    break;
+	save_chunk (f, dst, len, "ROM ", 0);
+	xfree (dst);
+    } while ((dst = save_rom (0, &len, 0)));
+
+#ifdef FILESYS
+    dst = save_filesys_common (&len);
+    if (dst) {
+	save_chunk (f, dst, len, "FSYC", 0);
+	#ifdef __LIBRETRO__
+		xfree (dst);
+	#endif
+    for (i = 0; i < nr_units (); i++) {
+	dst = save_filesys (i, &len);
+	if (dst) {
+	    save_chunk (f, dst, len, "FSYS", 0);
+	    xfree (dst);
+	}
+    }
+  }
+#endif
+   zfile_fwrite (endhunk, 1, 8, f);
+    write_log ("STATESAVE libretro serialization complete\n");
+  savestate_state = 0;
+  zfile_fseek (f, 0, SEEK_SET);
+  return f;
 }
 
 void savestate_quick (int slot, int save)

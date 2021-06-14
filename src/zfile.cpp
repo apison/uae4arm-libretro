@@ -38,6 +38,8 @@
 #include <windows.h>
 #include <io.h>
 
+#define MAX_CACHE_ENTRIES 10							
+
 int mkstemp(char *templ)
 {
     char *temp;
@@ -612,10 +614,17 @@ struct zfile *zfile_fopen_empty (const char *name, int size)
     l->name = name ? strdup (name) : (char *)"";
     if (size) {
       l->data = (uae_u8 *)xcalloc (size, 1);
-      l->size = size;
+      if (!l->data)  {
+      xfree (l);
+      return NULL;
+    }
+	  l->size = size;
+	  //l->datasize = size;
+  	l->allocsize = size;
     } else {
-    	l->data = (uae_u8*)xcalloc (1, 1);
+    	l->data = (uae_u8*)xcalloc (1000, 1);
     	l->size = 0;
+		l->allocsize = 1000;
     }
     return l;
 }
@@ -629,6 +638,11 @@ struct zfile *zfile_fopen_data (const char *name, int size, uae_u8 *data)
     l->size = size;
     memcpy (l->data, data, size);
     return l;
+}
+
+uae_s64 zfile_size (struct zfile *z)
+{
+	return z->size;
 }
 
 long zfile_ftell (struct zfile *z)
@@ -687,21 +701,36 @@ size_t zfile_fread (void *b, size_t l1, size_t l2, struct zfile *z)
 
 size_t zfile_fwrite (void *b, size_t l1, size_t l2, struct zfile *z)
 {
-    if (z->data) {
-	if (z->seek + l1 * l2 > z->size) {
-	    if (l1)
-    		l2 = (z->size - z->seek) / l1;
-	    else
-		l2 = 0;
-	    if (l2 < 0)
-		l2 = 0;
-	}
-	memcpy (z->data + z->seek, b, l1 * l2);
-	z->seek += l1 * l2;
-	return l2;
-    }
-    return fwrite (b, l1, l2, z->f);
+	if (z->archiveparent)
+		return 0;
+	if (z->zfilewrite)
+		return z->zfilewrite (b, l1, l2, z);
+  if (z->parent && z->useparent)
+	  return 0;
+  if (z->data) {
+		uae_s64 off = z->seek + l1 * l2;
+		if (z->allocsize == 0) {
+			write_log (_T("zfile_fwrite(data,%s) but allocsize=0!\n"), z->name);
+			return 0;
+		}
+		if (off > z->allocsize) {
+			int inc = (z->size / 2 + l1 * l2 + 7) & ~3;
+			if (inc < 10000)
+				inc = 10000;
+			z->allocsize += inc;
+			z->data = xrealloc (uae_u8, z->data, z->allocsize);
+	  }
+	  memcpy (z->data + z->seek, b, l1 * l2);
+	  z->seek += l1 * l2;
+		if (z->seek > z->size)
+			z->size = z->seek;
+		if (z->size > z->datasize)
+			z->datasize = z->size;
+	  return l2;
+  }
+  return fwrite (b, l1, l2, z->f);
 }
+
 
 size_t zfile_fputs (struct zfile *z, char *s)
 {

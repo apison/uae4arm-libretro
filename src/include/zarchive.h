@@ -1,13 +1,34 @@
+#include "uae/types.h"
+
+typedef uae_s64 (*ZFILEREAD)(void*, uae_u64, uae_u64, struct zfile*);
+typedef uae_s64 (*ZFILEWRITE)(const void*, uae_u64, uae_u64, struct zfile*);
+typedef uae_s64 (*ZFILESEEK)(struct zfile*, uae_s64, int);
 
 struct zfile {
-    char *name;
-    char *zipname;
-    FILE *f;
-    uae_u8 *data;
-    int size;
-    int seek;
-    int deleteafterclose;
-    struct zfile *next;
+  TCHAR *name;
+  TCHAR *zipname;
+  TCHAR *mode;
+  FILE *f; // real file handle if physical file
+  uae_u8 *data; // unpacked data
+  int dataseek; // use seek position even if real file
+	struct zfile *archiveparent; // set if parent is archive and this has not yet been unpacked (datasize < size)
+	int archiveid;
+  uae_s64 size; // real size
+	uae_s64 datasize; // available size (not yet unpacked completely?)
+	uae_s64 allocsize; // memory allocated before realloc() needed again
+  uae_s64 seek; // seek position
+  int deleteafterclose;
+  int textmode;
+  struct zfile *next;
+  int zfdmask;
+  struct zfile *parent;
+  uae_u64 offset; // byte offset from parent file
+  int opencnt;
+  ZFILEREAD zfileread;
+  ZFILEWRITE zfilewrite;
+  ZFILESEEK zfileseek;
+  void *userdata;
+  int useparent;
 };
 
 struct znode {

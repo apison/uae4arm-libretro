@@ -5,6 +5,23 @@
   *
   * (c) 1996 Samuel Devulder
   */
+  
+#ifndef __cplusplus
+
+//#define xmalloc(T, N) malloc(sizeof (T) * (N))
+//#define xcalloc(T, N) calloc(sizeof (T), N)
+//#define xfree(T) free(T)
+#define xrealloc(T, TP, N) realloc(TP, sizeof (T) * (N))
+
+#else
+
+//#define xmalloc(T, N) static_cast<T*>(malloc (sizeof (T) * (N)))
+//#define xcalloc(T, N) static_cast<T*>(calloc (sizeof (T), N))
+#define xrealloc(T, TP, N) static_cast<T*>(realloc (TP, sizeof (T) * (N)))
+//#define xfree(T) free(T)
+
+#endif
+
 struct zfile;
 struct zvolume;
 
@@ -18,6 +35,7 @@ extern int zfile_exists (const char *name);
 extern void zfile_fclose (struct zfile *);
 extern int zfile_fseek (struct zfile *z, long offset, int mode);
 extern long zfile_ftell (struct zfile *z);
+extern uae_s64 zfile_size (struct zfile *z);											
 extern size_t zfile_fread (void *b, size_t l1, size_t l2, struct zfile *z);
 extern size_t zfile_fwrite (void *b, size_t l1, size_t l2, struct zfile *z);
 extern char *zfile_fgets(char *s, int size, struct zfile *z);

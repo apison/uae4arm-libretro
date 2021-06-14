@@ -158,8 +158,7 @@ sort_by_ascii(char **a, char **b)
 }
 
 /* ------------------------------------------------------------------------ */
-char           *
-xrealloc(char *old, int size)
+char *xxrealloc(char *old, int size)
 {
 	char           *p = (char *) realloc(old, size);
 	if (!p)
@@ -201,7 +200,7 @@ add_sp(struct string_pool *sp, char *name, int len)
 {
 	while (sp->used + len > sp->size) {
 		sp->size *= 2;
-		sp->buffer = (char *) xrealloc(sp->buffer, sp->size * sizeof(char));
+		sp->buffer = (char *) xxrealloc(sp->buffer, sp->size * sizeof(char));
 	}
 	bcopy(name, sp->buffer + sp->used, len);
 	sp->used += len;

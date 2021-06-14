@@ -515,7 +515,7 @@ void retro_virtualkb(void)
 				deletestate(slot);
 				oldi=-1;
             }
-			else if(i==-6) //Pause
+			else if(i==-6) //Pause 
             {
 			   if (pauseg==0)	
                {

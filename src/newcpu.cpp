@@ -1712,9 +1712,15 @@ void m68k_go (int may_quit)
 	    hardboot = 0;
 #ifdef SAVESTATE
 	    if (savestate_state == STATE_RESTORE)
-		restore_state (savestate_fname);
+		{	
+			if (savestate_fname[0] == '\0')			   
+			{	
+				restore_state ();
+			}
+			else restore_state (savestate_fname);
+		}
 #endif
-      check_prefs_changed_adr24();
+        check_prefs_changed_adr24();
 	    customreset (hardreset);
 	    m68k_reset (hardreset);
 	    if (hardreset) {
