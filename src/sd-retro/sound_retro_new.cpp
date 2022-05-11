@@ -157,9 +157,9 @@ void finish_sound_buffer (void)
 
 
 	if(currprefs.sound_stereo)
-	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN;
+	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN * 2;
 	else
-	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN/2;	
+	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN;	
 
 #ifdef DEBUG_SOUND
 	dbg(" sound.c : ! finish_sound_buffer");
@@ -171,9 +171,9 @@ void restart_sound_buffer(void)
 {
 	sndbufpt = render_sndbuff = sndbuffer[wrcnt%SOUND_BUFFERS_COUNT];
 	if(currprefs.sound_stereo)
-	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN;
+	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN * 2;
 	else
-	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN/2;	  
+	  finish_sndbuff = sndbufpt + SNDBUFFER_LEN;	  
 }
 
 /* Try to determine whether sound is available.  This is only for GUI purposes.  */
